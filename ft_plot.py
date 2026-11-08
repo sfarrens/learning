@@ -64,27 +64,38 @@ def _figure(figsize):
     return fig
 
 
-def _app(fig, update, controls, rows=None, extra=None):
-    """Wire ``controls`` to ``update`` and display controls above the figure."""
+def _app(fig, update, controls, rows=None, below=None):
+    """Wire ``controls`` to ``update`` and display controls above the figure.
+
+    ``below`` is an optional list of extra widgets shown under the figure.
+    """
     live = _widget_backend()
     if not live:
         plt.close(fig)
+    out = widgets.Output()
 
-    def _update(**kwargs):
-        update(**kwargs)
-        if live:
-            fig.canvas.draw_idle()
-        else:
-            display(fig)
-        if extra is not None:
-            extra(**kwargs)
+    def _run(change=None):
+        kwargs = {name: control.value for name, control in controls.items()}
+        # Clear immediately (not clear_output(wait=True), which some front ends,
+        # e.g. VS Code, do not handle reliably and which can duplicate output).
+        out.clear_output()
+        with out:
+            update(**kwargs)
+            if live:
+                fig.canvas.draw_idle()
+            else:
+                display(fig)
 
-    out = widgets.interactive_output(_update, controls)
+    for control in controls.values():
+        control.observe(_run, names="value")
+
     rows = rows or [list(controls.values())]
     labelled = {id(c): _labelled(c) for c in controls.values()}
     children = [widgets.HBox([labelled.get(id(c), c) for c in row]) for row in rows]
     children += [fig.canvas, out] if live else [out]
+    children += list(below or [])
     display(widgets.VBox(children))
+    _run()
 
 
 def _labelled(control):
@@ -383,8 +394,8 @@ def winding_machine(t, g, wind, f_max=5.0):
     _app(fig, update, dict(f=slider), rows=[[play, slider]])
 
 
-def ft_pairs(t, nu, pairs, cft):
-    """Compare analytic and numerical continuous Fourier transforms."""
+def ft_pairs(t, f, pairs, cft):
+    """Compare analytic and numerical continuous Fourier transforms on time grid t and frequency grid f."""
     fig = _figure((10, 6))
     ax_t, ax_f = fig.subplots(2, 1)
 
@@ -396,8 +407,8 @@ def ft_pairs(t, nu, pairs, cft):
     def update(pair, width, shift):
         g_func, G_func = pairs[pair]
         g = g_func(t - shift, width)
-        G = G_func(nu, width) * np.exp(-2j * np.pi * nu * shift)
-        G_num = cft(g, t, nu[::8])
+        G = G_func(f, width) * np.exp(-2j * np.pi * f * shift)
+        G_num = cft(g, t, f[::8])
 
         ax_t.cla()
         ax_t.plot(t, g.real, color=BLUE)
@@ -408,16 +419,16 @@ def ft_pairs(t, nu, pairs, cft):
         ax_t.set_title(f"{pair}: width = {width:.2f}, shift $t_0$ = {shift:.2f}")
 
         ax_f.cla()
-        ax_f.plot(nu, np.abs(G), color=GREY, ls="--", lw=1.5, label=r"$|\hat{g}(f)|$")
-        ax_f.plot(nu, G.real, color=BLUE, label=r"Re $\hat{g}(f)$")
-        ax_f.plot(nu, G.imag, color=ORANGE, label=r"Im $\hat{g}(f)$")
-        ax_f.plot(nu[::8], G_num.real, "o", mfc="none", mec=INK, ms=5, mew=1, label="numerical (Re)")
+        ax_f.plot(f, np.abs(G), color=GREY, ls="--", lw=1.5, label=r"$|\hat{g}(f)|$")
+        ax_f.plot(f, G.real, color=BLUE, label=r"Re $\hat{g}(f)$")
+        ax_f.plot(f, G.imag, color=ORANGE, label=r"Im $\hat{g}(f)$")
+        ax_f.plot(f[::8], G_num.real, "o", mfc="none", mec=INK, ms=5, mew=1, label="numerical (Re)")
         lim = 1.15 * np.abs(G).max()
         ax_f.set_ylim(-lim, lim)
-        ax_f.set_xlim(nu[0], nu[-1])
+        ax_f.set_xlim(f[0], f[-1])
         ax_f.set_xlabel("$f$")
         ax_f.set_ylabel(r"$\hat{g}(f)$")
-        prod = rms_width(t, np.abs(g) ** 2) * rms_width(nu, np.abs(G) ** 2)
+        prod = rms_width(t, np.abs(g) ** 2) * rms_width(f, np.abs(G) ** 2)
         ax_f.set_title(
             rf"$\sigma_t\,\sigma_f = {prod:.3f}$   (uncertainty limit $1/4\pi \approx 0.080$)"
         )
@@ -670,11 +681,16 @@ def audio_filter(t, y, fs, bandpass, clean=None, zoom=0.03):
         ax_t.plot(t[mask] * 1e3, filtered[mask], color=BLUE, lw=1.8, label="filtered")
         ax_t.set_xlabel("$t$ [ms]")
         ax_t.legend(loc="upper right", ncols=3, fontsize=9)
-        update.filtered = filtered
+        player_filtered.value = _wav(filtered)
 
-    def listen(band_hz):
-        print("Filtered signal:")
-        display(Audio(update.filtered, rate=fs))
+    _wav = lambda signal: Audio(signal, rate=fs).data
+    player_noisy = widgets.Audio(value=_wav(y), format="wav", autoplay=False, loop=False)
+    player_filtered = widgets.Audio(value=_wav(y), format="wav", autoplay=False, loop=False)
+    players = widgets.HBox([
+        widgets.VBox([widgets.HTML("<b>Noisy recording</b>"), player_noisy]),
+        widgets.VBox([widgets.HTML("<b>Filtered</b>"), player_filtered],
+                     layout=widgets.Layout(margin="0 0 0 24px")),
+    ])
 
     controls = dict(
         band_hz=widgets.FloatRangeSlider(
@@ -682,7 +698,7 @@ def audio_filter(t, y, fs, bandpass, clean=None, zoom=0.03):
             continuous_update=False, **_slider_style("520px"),
         )
     )
-    _app(fig, update, controls, extra=listen)
+    _app(fig, update, controls, below=[players])
 
 
 def plane_wave(N=64):
