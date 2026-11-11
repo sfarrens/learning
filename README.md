@@ -19,6 +19,7 @@ Interactive Jupyter notebooks for building an intuition for core concepts in dat
 | Notebook | Description | Launch |
 |:--|:--|:--|
 | [The Fourier Transform and Fourier Space](fourier_transform.ipynb) | The continuous Fourier transform, the DFT and the FFT, with 1D (time-frequency) and 2D (space-spatial frequency) examples, filtering, sparsity and incomplete Fourier sampling. | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sfarrens/learning/blob/main/fourier_transform.ipynb) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/sfarrens/learning/main?labpath=fourier_transform.ipynb) |
+| [The Power Spectrum](power_spectrum.ipynb) | The power spectrum and its relation to the Fourier transform: Parseval, Wiener-Khinchin, coloured noise, estimating spectra from noisy data, Gaussian random fields, the two-point correlation function of point distributions, and uses in cosmology: the matter power spectrum (BAO), the CMB power spectrum (acoustic peaks, beam, noise, masks and pseudo-Cℓ) and the 3x2pt spectra of weak-lensing surveys. | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sfarrens/learning/blob/main/power_spectrum.ipynb) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/sfarrens/learning/main?labpath=power_spectrum.ipynb) |
 
 ## Getting Started
 
